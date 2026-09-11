@@ -19,6 +19,28 @@ from .commands import COMMANDS
 from .tts import speak_async
 from .stt import listen, is_available as stt_available
 
+# Try to import prompt_toolkit for autocomplete
+try:
+    from prompt_toolkit import prompt as pt_prompt
+    from prompt_toolkit.completion import Completer, Completion
+    from prompt_toolkit.styles import Style
+    HAS_PROMPT_TOOLKIT = True
+
+    class SlashCompleter(Completer):
+        def get_completions(self, document, complete_event):
+            text = document.text_before_cursor
+            if text.startswith("/"):
+                prefix = text[1:].lower()
+                for cmd in sorted(COMMANDS.keys()):
+                    if cmd.startswith(prefix):
+                        yield Completion(f"/{cmd}", start_position=-len(text))
+
+    VADER_STYLE = Style.from_dict({
+        'prompt': '#00ffe5 bold',
+    })
+except ImportError:
+    HAS_PROMPT_TOOLKIT = False
+
 # ANSI colors
 GREEN = "\033[38;2;0;255;65m"
 AMBER = "\033[38;2;255;176;0m"
@@ -234,7 +256,15 @@ Be concise. Execute tasks directly."""
                         print(f" (no speech detected)")
                         continue
                 else:
-                    user_input = input(f"\n{CYAN}>{RST} ").strip()
+                    if HAS_PROMPT_TOOLKIT:
+                        user_input = pt_prompt(
+                            "\n> ",
+                            completer=SlashCompleter(),
+                            style=VADER_STYLE,
+                            complete_while_typing=True
+                        ).strip()
+                    else:
+                        user_input = input(f"\n{CYAN}>{RST} ").strip()
 
                 if not user_input:
                     continue
