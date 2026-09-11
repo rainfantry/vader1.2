@@ -22,7 +22,8 @@ def cmd_help(agent: "VaderAgent", args: str = "") -> str:
 /thinking <on|off|effort> - Thinking mode
 /verbose <low|med|high>   - Response length
 /bypass            - Toggle dangerous cmd skip
-/tts <on|off>      - Speech output
+/tts <on|off>      - Text-to-speech output
+/stt <on|off>      - Speech-to-text input (TODO)
 /memory list|read <name>  - Memory ops
 /reset             - Clear context
 /status            - Show all states
@@ -84,14 +85,31 @@ def cmd_bypass(agent: "VaderAgent", args: str = "") -> str:
 
 @command("tts")
 def cmd_tts(agent: "VaderAgent", args: str = "") -> str:
+    from ..tts import speak_async
     args = args.strip().lower()
     if args == "on":
         agent.tts_enabled = True
+        speak_async("Text to speech enabled")
         return "TTS enabled"
     elif args == "off":
         agent.tts_enabled = False
         return "TTS disabled"
-    return f"TTS: {'on' if agent.tts_enabled else 'off'}"
+    elif args == "test":
+        speak_async("Testing text to speech output")
+        return "TTS test sent"
+    return f"TTS: {'on' if agent.tts_enabled else 'off'}. Use /tts test to test."
+
+
+@command("stt")
+def cmd_stt(agent: "VaderAgent", args: str = "") -> str:
+    args = args.strip().lower()
+    if args == "on":
+        agent.stt_enabled = True
+        return "STT enabled (TODO: implement voice input)"
+    elif args == "off":
+        agent.stt_enabled = False
+        return "STT disabled"
+    return f"STT: {'on' if agent.stt_enabled else 'off'} (not yet implemented)"
 
 
 @command("memory")
@@ -119,10 +137,12 @@ def cmd_status(agent: "VaderAgent", args: str = "") -> str:
     thinking = "on" if agent.venice.thinking_enabled else "off"
     bypass = "ON" if agent.bypass_enabled else "off"
     tts = "on" if agent.tts_enabled else "off"
+    stt = "on" if agent.stt_enabled else "off"
     return f"""
 Provider: {agent.current_provider}
 Thinking: {thinking} ({agent.venice.thinking_effort})
 Verbosity: {agent.venice.verbosity}
 Bypass: {bypass}
 TTS: {tts}
+STT: {stt}
 """.strip()

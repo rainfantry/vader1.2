@@ -16,6 +16,7 @@ from .providers import VeniceProvider, ClaudeProvider
 from .tools import TOOL_REGISTRY, TOOL_SCHEMAS
 from .tools.terminal import is_dangerous
 from .commands import COMMANDS
+from .tts import speak_async
 
 # ANSI colors
 GREEN = "\033[38;2;0;255;65m"
@@ -36,18 +37,20 @@ class VaderAgent:
         self.messages = []
         self.bypass_enabled = False
         self.tts_enabled = False
+        self.stt_enabled = False
 
     def status_bar(self) -> str:
         provider = self.current_provider[:6]
         thinking = "on" if self.venice.thinking_enabled else "off"
         tts = "on" if self.tts_enabled else "off"
+        stt = "on" if self.stt_enabled else "off"
 
         if self.bypass_enabled:
             bypass = f"{BG_RED}{BOLD}██BYPASS██{RST}"
         else:
             bypass = "BYPASS:OFF"
 
-        return f"{DIM}┌{'─'*65}┐{RST}\n{DIM}│{RST} VADER │ {provider} │ thinking:{thinking} │ tts:{tts} │ {bypass} {DIM}│{RST}\n{DIM}└{'─'*65}┘{RST}"
+        return f"{DIM}┌{'─'*70}┐{RST}\n{DIM}│{RST} VADER │ {provider} │ think:{thinking} │ tts:{tts} │ stt:{stt} │ {bypass} {DIM}│{RST}\n{DIM}└{'─'*70}┘{RST}"
 
     def confirm(self, msg: str) -> bool:
         if self.bypass_enabled:
@@ -158,6 +161,10 @@ Be concise. Execute tasks directly."""
 
                 response = self.process(user_input)
                 print(f"\n{response}")
+
+                # TTS output if enabled
+                if self.tts_enabled and response and not user_input.startswith("/"):
+                    speak_async(response)
 
                 # Update status bar after commands that change state
                 if user_input.startswith("/"):

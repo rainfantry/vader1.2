@@ -35,11 +35,13 @@ def glob_search(pattern: str, path: str = ".") -> str:
 
 def grep_search(pattern: str, path: str = ".", glob: str = None) -> str:
     try:
-        cmd = f'rg "{pattern}" "{path}"'
+        cmd = ["rg", pattern, path, "--max-count=50"]
         if glob:
-            cmd += f' -g "{glob}"'
-        cmd += " --max-count=50"
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
-        return result.stdout[:8000] or "No matches"
+            cmd.extend(["-g", glob])
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace")
+        output = result.stdout.strip()
+        return output[:8000] if output else "No matches"
+    except FileNotFoundError:
+        return "Error: ripgrep (rg) not found. Install it or use glob_search."
     except Exception as e:
         return f"Error: {e}"
