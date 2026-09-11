@@ -156,22 +156,39 @@ Be concise. Execute tasks directly."""
         if not user_input:
             return ""
 
-        # Handle slash commands
-        if user_input.startswith("/"):
-            parts = user_input[1:].split(maxsplit=1)
-            cmd_name = parts[0].lower()
-            cmd_args = parts[1] if len(parts) > 1 else ""
+        # Handle multi-line input: execute slash commands, collect rest as prompt
+        lines = user_input.split('\n')
+        prompt_lines = []
+        cmd_outputs = []
 
-            if cmd_name in COMMANDS:
-                return COMMANDS[cmd_name](self, cmd_args)
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("/"):
+                # Execute slash command immediately
+                parts = line[1:].split(maxsplit=1)
+                cmd_name = parts[0].lower()
+                cmd_args = parts[1] if len(parts) > 1 else ""
+                if cmd_name in COMMANDS:
+                    result = COMMANDS[cmd_name](self, cmd_args)
+                    print(f"{DIM}[/{cmd_name}] {result}{RST}")
+                    cmd_outputs.append(f"/{cmd_name}: {result}")
+                else:
+                    print(f"{RED}Unknown: /{cmd_name}{RST}")
             else:
-                return f"Unknown command: /{cmd_name}. Try /help"
+                prompt_lines.append(line)
 
-        # Route to provider
+        # If only slash commands, return summary
+        if not prompt_lines:
+            return "\n".join(cmd_outputs) if cmd_outputs else ""
+
+        # Route prompt to provider
+        prompt = "\n".join(prompt_lines)
         if self.current_provider == "venice":
-            return self.chat_venice(user_input)
+            return self.chat_venice(prompt)
         else:
-            return self.chat_claude(user_input)
+            return self.chat_claude(prompt)
 
     def run(self):
         print(f"{GREEN}╔══════════════════════════════════════════╗{RST}")
