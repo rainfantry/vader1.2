@@ -57,7 +57,7 @@ def listen(timeout: int = 10, wait_for_speech: bool = True) -> str:
 
     # Wait for voice activity first
     if wait_for_speech and HAS_VAD:
-        if not wait_for_voice(threshold=0.01, timeout=timeout):
+        if not wait_for_voice(threshold=0.003, timeout=timeout):
             return ""  # No voice detected
 
     # PowerShell script for speech recognition
