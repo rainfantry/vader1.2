@@ -24,6 +24,10 @@ try:
     from prompt_toolkit import prompt as pt_prompt
     from prompt_toolkit.completion import Completer, Completion
     from prompt_toolkit.styles import Style
+    from prompt_toolkit.history import FileHistory
+    from pathlib import Path
+    HISTORY_FILE = Path.home() / ".vader_history"
+    VADER_HISTORY = FileHistory(str(HISTORY_FILE))
     HAS_PROMPT_TOOLKIT = True
 
     # Command arguments for autocomplete
@@ -89,19 +93,49 @@ class VaderAgent:
         self.bypass_enabled = False
         self.tts_enabled = False
         self.stt_enabled = False
+        self._usage_cache = ""
+        self._usage_time = 0
+
+    def get_usage_short(self) -> str:
+        """Get short usage string, cached for 60 seconds."""
+        import time
+        import re
+        now = time.time()
+        if now - self._usage_time > 60:
+            try:
+                raw = self.claude.usage()
+                # Parse percentages from output
+                match = re.search(r'(\d+)%.*?(\d+)%', raw)
+                if match:
+                    self._usage_cache = f"{match.group(1)}%/{match.group(2)}%"
+                else:
+                    self._usage_cache = ""
+            except:
+                self._usage_cache = ""
+            self._usage_time = now
+        return self._usage_cache
 
     def status_bar(self) -> str:
         provider = self.current_provider[:6]
         thinking = "on" if self.venice.thinking_enabled else "off"
         tts = "on" if self.tts_enabled else "off"
-        stt = "on" if self.stt_enabled else "off"
+        stt = "@" if self.stt_enabled else "off"
+        usage = self.get_usage_short()
 
         if self.bypass_enabled:
-            bypass = f"{BG_RED}{BOLD}██BYPASS██{RST}"
+            bypass = f"{BG_RED}{BOLD}BYPASS{RST}"
         else:
-            bypass = "BYPASS:OFF"
+            bypass = ""
 
-        return f"{DIM}┌{'─'*70}┐{RST}\n{DIM}│{RST} VADER │ {provider} │ think:{thinking} │ tts:{tts} │ stt:{stt} │ {bypass} {DIM}│{RST}\n{DIM}└{'─'*70}┘{RST}"
+        parts = [f"VADER", provider, f"think:{thinking}", f"tts:{tts}", f"stt:{stt}"]
+        if usage:
+            parts.append(f"usage:{usage}")
+        if bypass:
+            parts.append(bypass)
+
+        content = " │ ".join(parts)
+        width = len(content) + 4
+        return f"{DIM}┌{'─'*width}┐{RST}\n{DIM}│{RST} {content} {DIM}│{RST}\n{DIM}└{'─'*width}┘{RST}"
 
     def confirm(self, msg: str) -> bool:
         if self.bypass_enabled:
@@ -275,31 +309,28 @@ Be concise. Execute tasks directly."""
         stt_fails = 0
         while True:
             try:
-                # Voice or text input
-                if self.stt_enabled and stt_fails < 3:
-                    print(f"\n{CYAN}🎤 Speak now...{RST}", flush=True)
-                    user_input = listen(timeout=15)
-                    if user_input:
-                        print(f"{GREEN}[you] {user_input}{RST}")
-                        stt_fails = 0
-                    else:
-                        stt_fails += 1
-                        print(f"{DIM}(no speech {stt_fails}/3){RST}")
-                        if stt_fails >= 3:
-                            print(f"{AMBER}Falling back to keyboard. /stt off to disable.{RST}")
-                        continue
+                # Always keyboard input, @ triggers voice
+                if HAS_PROMPT_TOOLKIT:
+                    user_input = pt_prompt(
+                        "\n> ",
+                        completer=SlashCompleter(),
+                        style=VADER_STYLE,
+                        complete_while_typing=True,
+                        history=VADER_HISTORY
+                    ).strip()
                 else:
-                    if self.stt_enabled:
-                        stt_fails = 0  # Reset for next voice attempt
-                    if HAS_PROMPT_TOOLKIT:
-                        user_input = pt_prompt(
-                            "\n> ",
-                            completer=SlashCompleter(),
-                            style=VADER_STYLE,
-                            complete_while_typing=True
-                        ).strip()
+                    user_input = input(f"\n{CYAN}>{RST} ").strip()
+
+                # @ triggers voice input
+                if user_input == "@" and self.stt_enabled:
+                    print(f"{CYAN}🎤 Speak now...{RST}", flush=True)
+                    voice_input = listen(timeout=15)
+                    if voice_input:
+                        print(f"{GREEN}[you] {voice_input}{RST}")
+                        user_input = voice_input
                     else:
-                        user_input = input(f"\n{CYAN}>{RST} ").strip()
+                        print(f"{DIM}(no speech detected){RST}")
+                        continue
 
                 if not user_input:
                     continue

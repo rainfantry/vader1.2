@@ -16,17 +16,19 @@ def command(name: str):
 @command("help")
 def cmd_help(agent: "VaderAgent", args: str = "") -> str:
     return """
-/help              - Show commands
 /model <v|c>       - Switch Venice/Claude
 /usage             - Claude subscription usage
 /thinking <on|off|effort> - Thinking mode
 /verbose <low|med|high>   - Response length
 /bypass            - Toggle dangerous cmd skip
-/tts <on|off>      - Text-to-speech output
-/stt <on|off|test> - Speech-to-text input
+/tts <on|off|test> - Text-to-speech output
+/stt <on|off|test|devices> - Speech-to-text (Whisper)
 /memory list|read <name>  - Memory ops
 /reset             - Clear context
 /status            - Show all states
+
+@ + Enter = voice input (when stt on)
+↑↓ = history  |  Tab = autocomplete
 """.strip()
 
 
