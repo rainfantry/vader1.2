@@ -7,7 +7,7 @@ Dual-brain terminal agent - Venice (GLM Heretic) + Claude.
 - **Venice primary** - Fast, cheap, GLM Heretic 4.7 with live streaming
 - **Claude fallback** - Via CLI subprocess (uses your subscription)
 - **Live streaming** - Thinking and content stream token by token
-- **Live tool output** - Bash commands show output line by line as they run
+- **Live tool output** - Commands show output line by line as they run (PowerShell on Windows)
 - **TTS** - Windows SAPI text-to-speech on responses
 - **STT** - Whisper (faster-whisper) offline voice input with auto-listen mode
 - **Browser automation** - Via kimi-webbridge (navigate, click, fill, screenshot, read)
@@ -62,7 +62,9 @@ Responses stream live:
 ```
 
 Voice mode is continuous - after each response, it listens again. Ctrl+C exits to keyboard.
-Status bar shows `stt:@` when enabled.
+Status bar shows `stt:@` when enabled. TTS strips markdown and truncates long responses (400 char limit).
+
+**Natural language control:** Say "turn on speech" or "enable TTS" and the LLM uses slash commands internally.
 
 ## Browser Automation
 
