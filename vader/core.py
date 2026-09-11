@@ -244,18 +244,25 @@ Be concise. Execute tasks directly."""
         print(f"{GREEN}╚══════════════════════════════════════════╝{RST}")
         print(self.status_bar())
 
+        stt_fails = 0
         while True:
             try:
                 # Voice or text input
-                if self.stt_enabled:
+                if self.stt_enabled and stt_fails < 3:
                     print(f"\n{CYAN}🎤 Listening...{RST}", end="", flush=True)
-                    user_input = listen(timeout=15)
+                    user_input = listen(timeout=10)
                     if user_input:
                         print(f" {user_input}")
+                        stt_fails = 0
                     else:
-                        print(f" (no speech detected)")
+                        stt_fails += 1
+                        print(f" (no speech {stt_fails}/3)")
+                        if stt_fails >= 3:
+                            print(f"{AMBER}Falling back to keyboard. Say something or /stt off to disable.{RST}")
                         continue
                 else:
+                    if self.stt_enabled:
+                        stt_fails = 0  # Reset for next voice attempt
                     if HAS_PROMPT_TOOLKIT:
                         user_input = pt_prompt(
                             "\n> ",
