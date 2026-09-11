@@ -36,10 +36,13 @@ python vader.py
 | `/verbose <low\|med\|high>` | Response verbosity |
 | `/bypass` | Toggle dangerous cmd skip (RED status bar) |
 | `/tts <on\|off\|test>` | Text-to-speech output |
-| `/stt <on\|off\|test>` | Speech-to-text input |
+| `/stt <on\|off\|test\|devices>` | Speech-to-text (Whisper offline) |
+| `@` | Trigger voice input (when stt enabled) |
 | `/memory list\|read <name>` | Memory ops |
 | `/reset` | Clear context |
 | `/status` | Show all states |
+
+**Keyboard shortcuts:** `↑↓` command history, `Tab` autocomplete commands and args
 
 ## Live Streaming
 
@@ -97,10 +100,17 @@ vader/
 ## Requirements
 
 - Python 3.10+
-- Windows (for TTS/STT)
+- Windows (for TTS - uses SAPI)
 - httpx
+- prompt_toolkit (autocomplete, history)
+- faster-whisper (offline STT)
+- sounddevice, numpy (voice activity detection)
 - Claude CLI (for /usage and Claude provider)
-- kimi-webbridge (optional, for browser)
+- kimi-webbridge Chrome extension (optional, for browser)
+
+```bash
+pip install -r requirements.txt
+```
 
 ## Author
 
