@@ -180,14 +180,27 @@ Be concise. Execute tasks directly."""
             if line.startswith("/"):
                 # Execute slash command immediately
                 parts = line[1:].split(maxsplit=1)
-                cmd_name = parts[0].lower()
+                cmd_name = parts[0].lower() if parts[0] else ""
                 cmd_args = parts[1] if len(parts) > 1 else ""
-                if cmd_name in COMMANDS:
-                    result = COMMANDS[cmd_name](self, cmd_args)
-                    print(f"{DIM}[/{cmd_name}] {result}{RST}")
-                    cmd_outputs.append(f"/{cmd_name}: {result}")
-                else:
+
+                # Show autocomplete if just "/" or partial match
+                if not cmd_name or cmd_name == "?":
+                    cmds = " ".join(f"/{c}" for c in sorted(COMMANDS.keys()))
+                    print(f"{CYAN}Commands: {cmds}{RST}")
+                    continue
+
+                # Partial match - show suggestions
+                if cmd_name not in COMMANDS:
+                    matches = [c for c in COMMANDS.keys() if c.startswith(cmd_name)]
+                    if matches:
+                        print(f"{CYAN}Did you mean: {' '.join('/' + m for m in matches)}{RST}")
+                        continue
                     print(f"{RED}Unknown: /{cmd_name}{RST}")
+                    continue
+
+                result = COMMANDS[cmd_name](self, cmd_args)
+                print(f"{DIM}[/{cmd_name}] {result}{RST}")
+                cmd_outputs.append(f"/{cmd_name}: {result}")
             else:
                 prompt_lines.append(line)
 
