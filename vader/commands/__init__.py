@@ -102,25 +102,28 @@ def cmd_tts(agent: "VaderAgent", args: str = "") -> str:
 
 @command("stt")
 def cmd_stt(agent: "VaderAgent", args: str = "") -> str:
-    from ..stt import is_available, listen
+    from ..stt import is_available, listen, get_devices
     args = args.strip().lower()
     if args == "on":
         if not is_available():
-            return "STT unavailable - Windows Speech Recognition not found"
+            return "STT unavailable - install faster-whisper"
         agent.stt_enabled = True
-        return "STT enabled - speak after the 🎤 prompt"
+        return "STT enabled (Whisper) - speak after 🎤"
     elif args == "off":
         agent.stt_enabled = False
         return "STT disabled"
     elif args == "test":
         if not is_available():
-            return "STT unavailable - Windows Speech Recognition not found"
-        print("Listening for 5 seconds...")
-        text = listen(timeout=5)
+            return "STT unavailable - install faster-whisper"
+        print("Speak now (records until silence)...")
+        text = listen(timeout=10)
         return f"Heard: '{text}'" if text else "No speech detected"
+    elif args == "devices":
+        devices = get_devices()
+        return "Input devices:\n" + "\n".join(devices) if devices else "No devices found"
     status = "on" if agent.stt_enabled else "off"
-    avail = "available" if is_available() else "unavailable"
-    return f"STT: {status} ({avail}). Use /stt test to test."
+    avail = "Whisper" if is_available() else "unavailable"
+    return f"STT: {status} ({avail}). /stt test | /stt devices"
 
 
 @command("memory")

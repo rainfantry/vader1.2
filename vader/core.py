@@ -249,16 +249,16 @@ Be concise. Execute tasks directly."""
             try:
                 # Voice or text input
                 if self.stt_enabled and stt_fails < 3:
-                    print(f"\n{DIM}🎤 Waiting for voice...{RST}", end="", flush=True)
-                    user_input = listen(timeout=15, wait_for_speech=True)
+                    print(f"\n{CYAN}🎤 Speak now...{RST}", flush=True)
+                    user_input = listen(timeout=15)
                     if user_input:
-                        print(f"\r{CYAN}🎤 {user_input}{RST}          ")
+                        print(f"{GREEN}[you] {user_input}{RST}")
                         stt_fails = 0
                     else:
                         stt_fails += 1
-                        print(f"\r{DIM}(silence {stt_fails}/3){RST}              ")
+                        print(f"{DIM}(no speech {stt_fails}/3){RST}")
                         if stt_fails >= 3:
-                            print(f"{AMBER}No voice detected. Type or /stt off{RST}")
+                            print(f"{AMBER}Falling back to keyboard. /stt off to disable.{RST}")
                         continue
                 else:
                     if self.stt_enabled:

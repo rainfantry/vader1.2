@@ -1,145 +1,142 @@
-"""STT via Windows Speech Recognition with Voice Activity Detection"""
-import subprocess
+"""STT via faster-whisper (offline, high accuracy)"""
 import sys
 import time
-from pathlib import Path
+import numpy as np
 
-# Try to import sounddevice for VAD
+# Try imports
 try:
     import sounddevice as sd
-    import numpy as np
-    HAS_VAD = True
+    from faster_whisper import WhisperModel
+    HAS_WHISPER = True
 except ImportError:
-    HAS_VAD = False
+    HAS_WHISPER = False
+
+# Config
+SAMPLE_RATE = 16000
+CHANNELS = 1
+SILENCE_THRESHOLD = 500  # RMS threshold (after *32768 scaling)
+SILENCE_DURATION = 1.5   # Seconds of silence to stop recording
+MAX_RECORD_SECONDS = 30
+WHISPER_MODEL_SIZE = "base"
+
+# Lazy load whisper model
+_whisper_model = None
 
 
-def wait_for_voice(threshold: float = 0.01, timeout: float = 30, check_interval: float = 0.1) -> bool:
-    """Wait until voice is detected (audio level exceeds threshold).
+def _get_whisper():
+    global _whisper_model
+    if _whisper_model is None and HAS_WHISPER:
+        print("[stt] Loading Whisper model...", flush=True)
+        _whisper_model = WhisperModel(WHISPER_MODEL_SIZE, device="cpu", compute_type="int8")
+        print("[stt] Whisper ready.", flush=True)
+    return _whisper_model
 
-    Args:
-        threshold: RMS threshold (0.0-1.0, default 0.01)
-        timeout: Max seconds to wait
-        check_interval: How often to check audio level
 
-    Returns:
-        True if voice detected, False if timeout
+def record_until_silence(timeout: float = 30) -> np.ndarray:
+    """Record audio until silence is detected after speech.
+
+    Returns numpy array of audio or None if no speech.
     """
-    if not HAS_VAD:
-        return True  # Skip VAD if no sounddevice
+    if not HAS_WHISPER:
+        return None
+
+    audio_chunks = []
+    silence_samples = 0
+    silence_limit = int(SILENCE_DURATION * SAMPLE_RATE)
+    max_samples = int(timeout * SAMPLE_RATE)
+    total_samples = 0
+    started = False
+
+    def callback(indata, frames, time_info, status):
+        nonlocal silence_samples, total_samples, started
+        chunk = indata[:, 0].copy()
+        rms = np.sqrt(np.mean(chunk ** 2)) * 32768
+
+        if rms > SILENCE_THRESHOLD:
+            started = True
+            silence_samples = 0
+        elif started:
+            silence_samples += len(chunk)
+
+        if started:
+            audio_chunks.append(chunk)
+            total_samples += len(chunk)
 
     try:
-        start = time.time()
-        while time.time() - start < timeout:
-            # Record a small chunk
-            audio = sd.rec(int(0.1 * 16000), samplerate=16000, channels=1, dtype='float32')
-            sd.wait()
-            rms = np.sqrt(np.mean(audio ** 2))
-            if rms > threshold:
-                return True
-            time.sleep(check_interval)
-        return False
-    except Exception:
-        return True  # Fall through to recognition on error
+        with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS,
+                            dtype="float32", blocksize=1024, callback=callback):
+            while True:
+                time.sleep(0.05)
+                if started and silence_samples >= silence_limit:
+                    break
+                if total_samples >= max_samples:
+                    break
+                # Timeout check for pre-speech waiting
+                if not started and total_samples == 0:
+                    # Check if we've been waiting too long with no speech
+                    pass  # Let the max_samples handle this
+    except Exception as e:
+        print(f"[stt] Recording error: {e}", flush=True)
+        return None
+
+    if not audio_chunks:
+        return None
+
+    return np.concatenate(audio_chunks)
 
 
-def listen(timeout: int = 10, wait_for_speech: bool = True) -> str:
+def transcribe(audio: np.ndarray) -> str:
+    """Transcribe audio array to text using Whisper."""
+    model = _get_whisper()
+    if model is None:
+        return ""
+
+    try:
+        segments, _ = model.transcribe(audio, beam_size=5, language="en", vad_filter=True)
+        text = " ".join(seg.text for seg in segments).strip()
+        return text
+    except Exception as e:
+        print(f"[stt] Transcribe error: {e}", flush=True)
+        return ""
+
+
+def listen(timeout: int = 15, wait_for_speech: bool = True) -> str:
     """Listen for speech and return transcribed text.
 
     Args:
-        timeout: Max seconds to listen (default 10)
-        wait_for_speech: If True, wait for voice activity before recognizing
+        timeout: Max seconds to wait/record
+        wait_for_speech: Ignored (always waits for speech with this implementation)
 
     Returns:
-        Transcribed text, or empty string on failure/timeout
+        Transcribed text, or empty string if no speech
     """
-    if sys.platform != "win32":
+    if not HAS_WHISPER:
         return ""
 
-    # Wait for voice activity first
-    if wait_for_speech and HAS_VAD:
-        if not wait_for_voice(threshold=0.003, timeout=timeout):
-            return ""  # No voice detected
+    audio = record_until_silence(timeout=timeout)
 
-    # PowerShell script for speech recognition
-    ps_script = f'''
-Add-Type -AssemblyName System.Speech
-$recognizer = New-Object System.Speech.Recognition.SpeechRecognitionEngine
-$recognizer.SetInputToDefaultAudioDevice()
-
-# Use dictation grammar for free-form speech
-$grammar = New-Object System.Speech.Recognition.DictationGrammar
-$recognizer.LoadGrammar($grammar)
-
-try {{
-    $result = $recognizer.Recognize([TimeSpan]::FromSeconds({timeout}))
-    if ($result) {{
-        Write-Output $result.Text
-    }}
-}} catch {{
-    Write-Output ""
-}} finally {{
-    $recognizer.Dispose()
-}}
-'''
-
-    try:
-        result = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", ps_script],
-            capture_output=True,
-            text=True,
-            timeout=timeout + 5,
-            encoding="utf-8",
-            errors="replace"
-        )
-        return result.stdout.strip()
-    except subprocess.TimeoutExpired:
-        return ""
-    except Exception as e:
+    if audio is None or len(audio) < SAMPLE_RATE * 0.3:
         return ""
 
-
-def listen_continuous(on_result: callable, stop_word: str = "stop listening"):
-    """Continuously listen and call on_result with each recognized phrase.
-
-    Stops when stop_word is recognized.
-
-    Args:
-        on_result: Called with each transcribed phrase
-        stop_word: Phrase that stops listening
-    """
-    if sys.platform != "win32":
-        return
-
-    while True:
-        text = listen(timeout=15)
-        if text:
-            if text.lower().strip() == stop_word.lower():
-                break
-            on_result(text)
+    text = transcribe(audio)
+    return text
 
 
 def is_available() -> bool:
-    """Check if Windows Speech Recognition is available."""
-    if sys.platform != "win32":
-        return False
+    """Check if faster-whisper STT is available."""
+    return HAS_WHISPER
 
-    ps_script = '''
-try {
-    Add-Type -AssemblyName System.Speech
-    $r = New-Object System.Speech.Recognition.SpeechRecognitionEngine
-    $r.Dispose()
-    Write-Output "OK"
-} catch {
-    Write-Output "FAIL"
-}
-'''
+
+def get_devices():
+    """List available audio input devices."""
+    if not HAS_WHISPER:
+        return []
     try:
-        result = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", ps_script],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        return result.stdout.strip() == "OK"
+        devices = sd.query_devices()
+        inputs = []
+        for i, d in enumerate(devices):
+            if d['max_input_channels'] > 0:
+                inputs.append(f"{i}: {d['name']}")
+        return inputs
     except:
-        return False
+        return []
