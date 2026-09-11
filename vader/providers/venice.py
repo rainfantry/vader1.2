@@ -4,13 +4,15 @@ import json
 from typing import Optional, Generator
 import httpx
 
-VENICE_API_KEY = os.getenv("VENICE_API_KEY", "VENICE_ADMIN_KEY_kPp0358Yc9TYZP4JW7pa9ONz3LRuho_n-95t_qbXt6")
+VENICE_API_KEY = os.getenv("VENICE_API_KEY", "")
 VENICE_BASE_URL = "https://api.venice.ai/api/v1"
 DEFAULT_MODEL = "olafangensan-glm-4.7-flash-heretic"
 
 
 class VeniceProvider:
     def __init__(self, model: str = DEFAULT_MODEL):
+        if not VENICE_API_KEY:
+            print("\033[38;2;255;176;0mWarning: VENICE_API_KEY not set. Get one at https://venice.ai\033[0m")
         self.model = model
         self.client = httpx.Client(timeout=120.0)
         self.thinking_enabled = True

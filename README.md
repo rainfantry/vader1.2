@@ -2,6 +2,26 @@
 
 Dual-brain terminal agent - Venice (GLM Heretic) + Claude.
 
+## Installation
+
+```bash
+# Clone
+git clone https://github.com/rainfantry/vader-unified.git
+cd vader-unified
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set Venice API key (get from https://venice.ai)
+# Windows:
+set VENICE_API_KEY=your_key_here
+# Or add to PowerShell profile:
+# $env:VENICE_API_KEY = "your_key_here"
+
+# Create alias (add to PowerShell profile)
+function vader { python "C:\path\to\vader-unified\vader.py" $args }
+```
+
 ## Features
 
 - **Venice primary** - Fast, cheap, GLM Heretic 4.7 with live streaming
