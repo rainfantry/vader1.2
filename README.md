@@ -69,7 +69,8 @@ Status bar shows `stt:@` when enabled. TTS strips markdown and truncates long re
 ## Browser Automation
 
 Requires kimi-webbridge extension connected. The agent can:
-- Navigate to URLs
+- Navigate to URLs (reuses same tab by default)
+- Scroll up/down/top/bottom like a human
 - Click elements (using @e refs from snapshot)
 - Fill forms
 - Take screenshots
