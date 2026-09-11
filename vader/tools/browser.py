@@ -74,10 +74,11 @@ def _ensure_daemon() -> bool:
     return True
 
 
-def browser_action(action: str, url: str = None, selector: str = None, text: str = None) -> str:
+def browser_action(action: str, url: str = None, selector: str = None, text: str = None,
+                   direction: str = "down", amount: int = 500, new_tab: bool = False) -> str:
     """Browser automation via webbridge.
 
-    Actions: navigate, click, fill, snapshot, screenshot, evaluate
+    Actions: navigate, click, fill, snapshot, screenshot, evaluate, scroll, close
     """
     if not WEBBRIDGE_EXE.exists():
         return "Error: kimi-webbridge not installed. Install from https://www.kimi.com/en/products/kimi-webbridge"
@@ -92,11 +93,28 @@ def browser_action(action: str, url: str = None, selector: str = None, text: str
     if action == "navigate":
         if not url:
             return "Error: url required for navigate"
-        args = {"url": url, "newTab": True, "group_title": "VADER Browser"}
+        args = {"url": url, "newTab": new_tab, "group_title": "VADER Browser"}
         resp = _call_webbridge("navigate", args)
         if resp.get("ok"):
             data = resp.get("data", {})
             return f"Navigated to {data.get('url')} (tab {data.get('tabId')})"
+        return f"Error: {resp.get('error', {}).get('message', 'Unknown error')}"
+
+    elif action == "scroll":
+        # Scroll via JavaScript
+        if direction == "up":
+            code = f"window.scrollBy(0, -{amount})"
+        elif direction == "down":
+            code = f"window.scrollBy(0, {amount})"
+        elif direction == "top":
+            code = "window.scrollTo(0, 0)"
+        elif direction == "bottom":
+            code = "window.scrollTo(0, document.body.scrollHeight)"
+        else:
+            code = f"window.scrollBy(0, {amount})"
+        resp = _call_webbridge("evaluate", {"code": code})
+        if resp.get("ok"):
+            return f"Scrolled {direction} by {amount}px"
         return f"Error: {resp.get('error', {}).get('message', 'Unknown error')}"
 
     elif action == "click":
