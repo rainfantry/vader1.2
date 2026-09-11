@@ -26,14 +26,42 @@ try:
     from prompt_toolkit.styles import Style
     HAS_PROMPT_TOOLKIT = True
 
+    # Command arguments for autocomplete
+    CMD_ARGS = {
+        "model": ["v", "c", "venice", "claude"],
+        "thinking": ["on", "off", "none", "minimal", "low", "medium", "high", "xhigh", "max"],
+        "verbose": ["low", "med", "high", "auto"],
+        "tts": ["on", "off", "test"],
+        "stt": ["on", "off", "test", "devices"],
+        "bypass": [],
+        "memory": ["list", "read"],
+        "reset": [],
+        "status": [],
+        "help": [],
+        "usage": [],
+    }
+
     class SlashCompleter(Completer):
         def get_completions(self, document, complete_event):
             text = document.text_before_cursor
-            if text.startswith("/"):
-                prefix = text[1:].lower()
-                for cmd in sorted(COMMANDS.keys()):
-                    if cmd.startswith(prefix):
-                        yield Completion(f"/{cmd}", start_position=-len(text))
+            if not text.startswith("/"):
+                return
+
+            parts = text[1:].split(maxsplit=1)
+            cmd = parts[0].lower() if parts else ""
+
+            if len(parts) <= 1 and " " not in text:
+                # Complete command name
+                for c in sorted(COMMANDS.keys()):
+                    if c.startswith(cmd):
+                        yield Completion(f"/{c} ", start_position=-len(text), display=f"/{c}")
+            else:
+                # Complete arguments
+                if cmd in CMD_ARGS:
+                    arg_prefix = parts[1].lower() if len(parts) > 1 else ""
+                    for arg in CMD_ARGS[cmd]:
+                        if arg.startswith(arg_prefix):
+                            yield Completion(arg, start_position=-len(arg_prefix))
 
     VADER_STYLE = Style.from_dict({
         'prompt': '#00ffe5 bold',
