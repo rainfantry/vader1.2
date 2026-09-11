@@ -16,7 +16,7 @@ from .providers import VeniceProvider, ClaudeProvider
 from .tools import TOOL_REGISTRY, TOOL_SCHEMAS
 from .tools.terminal import is_dangerous
 from .commands import COMMANDS
-from .tts import speak_async
+from .tts import speak, speak_async
 from .stt import listen, is_available as stt_available
 
 # Try to import prompt_toolkit for autocomplete
@@ -369,7 +369,13 @@ Be concise. Execute tasks directly."""
 
                 # TTS output if enabled
                 if self.tts_enabled and response and not user_input.startswith("/"):
-                    speak_async(response)
+                    if self.stt_enabled:
+                        # Sync TTS + delay when mic is on to avoid feedback
+                        speak(response)
+                        import time
+                        time.sleep(0.5)
+                    else:
+                        speak_async(response)
 
                 # Update status bar after commands that change state
                 if user_input.startswith("/"):
