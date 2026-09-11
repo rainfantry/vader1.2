@@ -17,7 +17,7 @@ TOOL_REGISTRY = {
 }
 
 TOOL_SCHEMAS = [
-    {"type": "function", "function": {"name": "slash", "description": "Execute a VADER slash command (e.g. /tts on, /thinking high, /bypass, /status). Use this to change agent settings when user asks.", "parameters": {"type": "object", "properties": {"command": {"type": "string", "description": "The slash command without the leading slash (e.g. 'tts on', 'thinking high', 'bypass')"}}, "required": ["command"]}}},
+    {"type": "function", "function": {"name": "slash", "description": "ALWAYS use this for ANY settings change. Turn TTS/STT on or off, switch models, change thinking, etc. Examples: 'stt off' (disable speech-to-text), 'tts on' (enable text-to-speech), 'model c' (switch to Claude), 'thinking high' (set thinking effort).", "parameters": {"type": "object", "properties": {"command": {"type": "string", "description": "Command without leading slash: 'stt off', 'tts on', 'model v', 'thinking high', 'bypass', 'status', 'reset'"}}, "required": ["command"]}}},
     {"type": "function", "function": {"name": "bash", "description": "Execute bash/shell command", "parameters": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}}},
     {"type": "function", "function": {"name": "read_file", "description": "Read file contents", "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "limit": {"type": "integer", "default": 200}}, "required": ["path"]}}},
     {"type": "function", "function": {"name": "write_file", "description": "Write content to file", "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}}},

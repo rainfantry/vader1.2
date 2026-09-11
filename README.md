@@ -9,10 +9,11 @@ Dual-brain terminal agent - Venice (GLM Heretic) + Claude.
 - **Live streaming** - Thinking and content stream token by token
 - **Live tool output** - Bash commands show output line by line as they run
 - **TTS** - Windows SAPI text-to-speech on responses
-- **STT** - Windows Speech Recognition for voice input
+- **STT** - Whisper (faster-whisper) offline voice input with auto-listen mode
 - **Browser automation** - Via kimi-webbridge (navigate, click, fill, screenshot, read)
 - **Shared memory** - Uses Claude Code memory folder
-- **Status bar** - Provider, thinking, TTS, STT, bypass mode
+- **Status bar** - Provider, thinking, TTS, STT, Claude usage (session%/week%), bypass mode
+- **History** - ↑↓ arrows for command history, Tab for autocomplete
 
 ## Usage
 
@@ -50,10 +51,15 @@ Responses stream live:
 ## Voice
 
 ```
-/tts on       # Speak responses
-/stt on       # Voice input (speak after 🎤 prompt)
+/tts on       # Speak responses aloud (Windows SAPI)
+/stt on       # Voice mode - auto-listens after each response
+/stt off      # Back to keyboard only
 /stt test     # Test microphone
+/stt devices  # List audio input devices
 ```
+
+Voice mode is continuous - after each response, it listens again. Ctrl+C exits to keyboard.
+Status bar shows `stt:@` when enabled.
 
 ## Browser Automation
 
@@ -85,7 +91,7 @@ vader/
 │   └── browser.py      # kimi-webbridge
 ├── commands/           # Slash commands
 ├── tts.py              # Windows SAPI TTS
-└── stt.py              # Windows Speech Recognition
+└── stt.py              # faster-whisper STT (offline)
 ```
 
 ## Requirements

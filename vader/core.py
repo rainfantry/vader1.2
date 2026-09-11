@@ -93,6 +93,7 @@ class VaderAgent:
         self.bypass_enabled = False
         self.tts_enabled = False
         self.stt_enabled = False
+        self.voice_mode = False
         self._usage_cache = ""
         self._usage_time = 0
 
@@ -104,10 +105,13 @@ class VaderAgent:
         if now - self._usage_time > 60:
             try:
                 raw = self.claude.usage()
-                # Parse percentages from output
-                match = re.search(r'(\d+)%.*?(\d+)%', raw)
-                if match:
-                    self._usage_cache = f"{match.group(1)}%/{match.group(2)}%"
+                # Parse "Current session: X% used" and "Current week: Y% used"
+                session = re.search(r'(?:session|Session)[^\d]*(\d+)%', raw)
+                week = re.search(r'(?:week|Week)[^\d]*(\d+)%', raw)
+                if session and week:
+                    self._usage_cache = f"{session.group(1)}%/{week.group(1)}%"
+                elif session:
+                    self._usage_cache = f"{session.group(1)}%"
                 else:
                     self._usage_cache = ""
             except:
@@ -183,6 +187,10 @@ class VaderAgent:
         system = f"""You are VADER, a terminal agent with tool use.
 Current directory: {os.getcwd()}
 User: George Wu (gwu07)
+
+IMPORTANT: For ANY settings change (turn TTS on/off, turn STT on/off, switch model, change thinking, etc), use the "slash" tool.
+Examples: slash("stt off"), slash("tts on"), slash("model c"), slash("thinking high")
+
 Be concise. Execute tasks directly."""
 
         thinking_started = False
@@ -288,9 +296,9 @@ Be concise. Execute tasks directly."""
             else:
                 prompt_lines.append(line)
 
-        # If only slash commands, return summary
+        # If only slash commands, already printed - return empty
         if not prompt_lines:
-            return "\n".join(cmd_outputs) if cmd_outputs else ""
+            return ""
 
         # Route prompt to provider
         prompt = "\n".join(prompt_lines)
@@ -306,31 +314,49 @@ Be concise. Execute tasks directly."""
         print(f"{GREEN}╚══════════════════════════════════════════╝{RST}")
         print(self.status_bar())
 
-        stt_fails = 0
         while True:
             try:
-                # Always keyboard input, @ triggers voice
-                if HAS_PROMPT_TOOLKIT:
-                    user_input = pt_prompt(
-                        "\n> ",
-                        completer=SlashCompleter(),
-                        style=VADER_STYLE,
-                        complete_while_typing=True,
-                        history=VADER_HISTORY
-                    ).strip()
-                else:
-                    user_input = input(f"\n{CYAN}>{RST} ").strip()
+                user_input = None
 
-                # @ triggers voice input
-                if user_input == "@" and self.stt_enabled:
-                    print(f"{CYAN}🎤 Speak now...{RST}", flush=True)
-                    voice_input = listen(timeout=15)
-                    if voice_input:
-                        print(f"{GREEN}[you] {voice_input}{RST}")
-                        user_input = voice_input
+                # Auto-voice mode: listen automatically when stt enabled
+                if self.stt_enabled and self.voice_mode:
+                    print(f"{CYAN}🎤 Speak now... (Ctrl+C for keyboard){RST}", flush=True)
+                    try:
+                        voice_input = listen(timeout=15)
+                        if voice_input:
+                            print(f"{GREEN}[you] {voice_input}{RST}")
+                            user_input = voice_input
+                        else:
+                            print(f"{DIM}(no speech - switching to keyboard){RST}")
+                            self.voice_mode = False
+                    except KeyboardInterrupt:
+                        print(f"{AMBER}(keyboard mode){RST}")
+                        self.voice_mode = False
+
+                # Keyboard input (always available)
+                if user_input is None:
+                    if HAS_PROMPT_TOOLKIT:
+                        user_input = pt_prompt(
+                            "\n> ",
+                            completer=SlashCompleter(),
+                            style=VADER_STYLE,
+                            complete_while_typing=True,
+                            history=VADER_HISTORY
+                        ).strip()
                     else:
-                        print(f"{DIM}(no speech detected){RST}")
-                        continue
+                        user_input = input(f"\n{CYAN}>{RST} ").strip()
+
+                    # @ triggers voice mode
+                    if user_input == "@" and self.stt_enabled:
+                        self.voice_mode = True
+                        print(f"{CYAN}🎤 Speak now...{RST}", flush=True)
+                        voice_input = listen(timeout=15)
+                        if voice_input:
+                            print(f"{GREEN}[you] {voice_input}{RST}")
+                            user_input = voice_input
+                        else:
+                            print(f"{DIM}(no speech detected){RST}")
+                            continue
 
                 if not user_input:
                     continue
@@ -338,7 +364,8 @@ Be concise. Execute tasks directly."""
                     break
 
                 response = self.process(user_input)
-                print(f"\n{response}")
+                if response:
+                    print(f"\n{response}")
 
                 # TTS output if enabled
                 if self.tts_enabled and response and not user_input.startswith("/"):
@@ -348,8 +375,13 @@ Be concise. Execute tasks directly."""
                 if user_input.startswith("/"):
                     print(self.status_bar())
 
+                # Stay in voice mode if stt enabled and not a command
+                if self.stt_enabled and not user_input.startswith("/"):
+                    self.voice_mode = True
+
             except KeyboardInterrupt:
                 print(f"\n{AMBER}Interrupted{RST}")
+                self.voice_mode = False
                 continue
             except EOFError:
                 break

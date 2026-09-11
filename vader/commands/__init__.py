@@ -110,9 +110,11 @@ def cmd_stt(agent: "VaderAgent", args: str = "") -> str:
         if not is_available():
             return "STT unavailable - install faster-whisper"
         agent.stt_enabled = True
-        return "STT enabled (Whisper) - speak after 🎤"
+        agent.voice_mode = True  # Auto-start voice
+        return "STT enabled - voice mode active"
     elif args == "off":
         agent.stt_enabled = False
+        agent.voice_mode = False
         return "STT disabled"
     elif args == "test":
         if not is_available():
