@@ -23,7 +23,7 @@ def cmd_help(agent: "VaderAgent", args: str = "") -> str:
 /verbose <low|med|high>   - Response length
 /bypass            - Toggle dangerous cmd skip
 /tts <on|off>      - Text-to-speech output
-/stt <on|off>      - Speech-to-text input (TODO)
+/stt <on|off|test> - Speech-to-text input
 /memory list|read <name>  - Memory ops
 /reset             - Clear context
 /status            - Show all states
@@ -102,14 +102,25 @@ def cmd_tts(agent: "VaderAgent", args: str = "") -> str:
 
 @command("stt")
 def cmd_stt(agent: "VaderAgent", args: str = "") -> str:
+    from ..stt import is_available, listen
     args = args.strip().lower()
     if args == "on":
+        if not is_available():
+            return "STT unavailable - Windows Speech Recognition not found"
         agent.stt_enabled = True
-        return "STT enabled (TODO: implement voice input)"
+        return "STT enabled - speak after the 🎤 prompt"
     elif args == "off":
         agent.stt_enabled = False
         return "STT disabled"
-    return f"STT: {'on' if agent.stt_enabled else 'off'} (not yet implemented)"
+    elif args == "test":
+        if not is_available():
+            return "STT unavailable - Windows Speech Recognition not found"
+        print("Listening for 5 seconds...")
+        text = listen(timeout=5)
+        return f"Heard: '{text}'" if text else "No speech detected"
+    status = "on" if agent.stt_enabled else "off"
+    avail = "available" if is_available() else "unavailable"
+    return f"STT: {status} ({avail}). Use /stt test to test."
 
 
 @command("memory")

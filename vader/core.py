@@ -17,6 +17,7 @@ from .tools import TOOL_REGISTRY, TOOL_SCHEMAS
 from .tools.terminal import is_dangerous
 from .commands import COMMANDS
 from .tts import speak_async
+from .stt import listen, is_available as stt_available
 
 # ANSI colors
 GREEN = "\033[38;2;0;255;65m"
@@ -58,7 +59,7 @@ class VaderAgent:
         response = input(f"{AMBER}⚠ {msg} [y/N]: {RST}").strip().lower()
         return response in ('y', 'yes')
 
-    def execute_tool(self, name: str, args: dict) -> str:
+    def execute_tool(self, name: str, args: dict, live_output: bool = True) -> str:
         print(f"{DIM}[{name}] {json.dumps(args, ensure_ascii=False)[:80]}...{RST}")
 
         if name == "bash" and is_dangerous(args.get("command", "")):
@@ -70,7 +71,13 @@ class VaderAgent:
             return f"Unknown tool: {name}"
 
         try:
-            return fn(**args)
+            # Live output for bash commands
+            if name == "bash" and live_output:
+                def on_line(line):
+                    print(f"{DIM}  │ {line}{RST}")
+                return fn(on_output=on_line, **args)
+            else:
+                return fn(**args)
         except Exception as e:
             return f"Error: {e}"
 
@@ -82,18 +89,41 @@ Current directory: {os.getcwd()}
 User: George Wu (gwu07)
 Be concise. Execute tasks directly."""
 
+        thinking_started = False
+        content_started = False
+
+        def on_thinking(text):
+            nonlocal thinking_started
+            if not thinking_started:
+                print(f"{DIM}[thinking] ", end="", flush=True)
+                thinking_started = True
+            print(f"{DIM}{text}{RST}", end="", flush=True)
+
+        def on_content(text):
+            nonlocal content_started, thinking_started
+            if thinking_started and not content_started:
+                print()  # newline after thinking
+            if not content_started:
+                print(f"\n", end="")
+                content_started = True
+            print(text, end="", flush=True)
+
         while True:
-            response = self.venice.chat(
+            thinking_started = False
+            content_started = False
+
+            response = self.venice.chat_stream(
                 [{"role": "system", "content": system}] + self.messages,
-                tools=TOOL_SCHEMAS
+                tools=TOOL_SCHEMAS,
+                on_thinking=on_thinking,
+                on_content=on_content
             )
 
-            choice = response["choices"][0]
-            msg = choice["message"]
+            msg = response["choices"][0]["message"]
 
-            # Show thinking if present
-            if msg.get("reasoning_content"):
-                print(f"{DIM}[thinking] {msg['reasoning_content'][:200]}...{RST}")
+            # Newline after streaming
+            if content_started or thinking_started:
+                print()
 
             # Handle tool calls
             if msg.get("tool_calls"):
@@ -114,7 +144,7 @@ Be concise. Execute tasks directly."""
                 continue
 
             # No tool calls - return response
-            content = msg.get("content", "")
+            content = msg.get("content", "") or ""
             self.messages.append({"role": "assistant", "content": content})
             return content
 
@@ -152,7 +182,17 @@ Be concise. Execute tasks directly."""
 
         while True:
             try:
-                user_input = input(f"\n{CYAN}>{RST} ").strip()
+                # Voice or text input
+                if self.stt_enabled:
+                    print(f"\n{CYAN}🎤 Listening...{RST}", end="", flush=True)
+                    user_input = listen(timeout=15)
+                    if user_input:
+                        print(f" {user_input}")
+                    else:
+                        print(f" (no speech detected)")
+                        continue
+                else:
+                    user_input = input(f"\n{CYAN}>{RST} ").strip()
 
                 if not user_input:
                     continue
