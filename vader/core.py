@@ -62,6 +62,18 @@ class VaderAgent:
     def execute_tool(self, name: str, args: dict, live_output: bool = True) -> str:
         print(f"{DIM}[{name}] {json.dumps(args, ensure_ascii=False)[:80]}...{RST}")
 
+        # Handle slash command tool specially
+        if name == "slash":
+            cmd_str = args.get("command", "").strip()
+            parts = cmd_str.split(maxsplit=1)
+            cmd_name = parts[0].lower()
+            cmd_args = parts[1] if len(parts) > 1 else ""
+            if cmd_name in COMMANDS:
+                result = COMMANDS[cmd_name](self, cmd_args)
+                print(self.status_bar())
+                return f"Executed /{cmd_name}: {result}"
+            return f"Unknown command: /{cmd_name}"
+
         if name == "bash" and is_dangerous(args.get("command", "")):
             if not self.confirm(f"Execute dangerous: {args['command'][:60]}?"):
                 return "User rejected dangerous command"
