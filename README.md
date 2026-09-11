@@ -4,12 +4,15 @@ Dual-brain terminal agent - Venice (GLM Heretic) + Claude.
 
 ## Features
 
-- **Venice primary** - Fast, cheap, GLM Heretic 4.7
+- **Venice primary** - Fast, cheap, GLM Heretic 4.7 with live streaming
 - **Claude fallback** - Via CLI subprocess (uses your subscription)
-- **Tool execution** - bash, file ops, grep, glob
+- **Live streaming** - Thinking and content stream token by token
+- **Live tool output** - Bash commands show output line by line as they run
+- **TTS** - Windows SAPI text-to-speech on responses
+- **STT** - Windows Speech Recognition for voice input
+- **Browser automation** - Via kimi-webbridge (navigate, click, fill, screenshot, read)
 - **Shared memory** - Uses Claude Code memory folder
-- **Status bar** - Provider, thinking, TTS, bypass mode
-- **Slash commands** - Model switching, settings, memory
+- **Status bar** - Provider, thinking, TTS, STT, bypass mode
 
 ## Usage
 
@@ -28,13 +31,38 @@ python vader.py
 | `/help` | Show commands |
 | `/model <v\|c>` | Switch Venice/Claude |
 | `/usage` | Claude subscription usage |
-| `/thinking <on\|off\|effort>` | Thinking mode |
-| `/verbose <low\|med\|high>` | Response length |
-| `/bypass` | Toggle dangerous cmd skip (RED status) |
-| `/tts <on\|off>` | Speech output |
+| `/thinking <on\|off\|effort>` | Thinking mode (none/minimal/low/medium/high/xhigh/max) |
+| `/verbose <low\|med\|high>` | Response verbosity |
+| `/bypass` | Toggle dangerous cmd skip (RED status bar) |
+| `/tts <on\|off\|test>` | Text-to-speech output |
+| `/stt <on\|off\|test>` | Speech-to-text input |
 | `/memory list\|read <name>` | Memory ops |
 | `/reset` | Clear context |
 | `/status` | Show all states |
+
+## Live Streaming
+
+Responses stream live:
+- **Thinking** - Shows `[thinking]` prefix with reasoning tokens
+- **Content** - Appears word by word
+- **Tool output** - Bash commands show `│ line` for each output line
+
+## Voice
+
+```
+/tts on       # Speak responses
+/stt on       # Voice input (speak after 🎤 prompt)
+/stt test     # Test microphone
+```
+
+## Browser Automation
+
+Requires kimi-webbridge extension connected. The agent can:
+- Navigate to URLs
+- Click elements (using @e refs from snapshot)
+- Fill forms
+- Take screenshots
+- Read page content (accessibility tree)
 
 ## Venice API Params
 
@@ -46,17 +74,27 @@ python vader.py
 
 ```
 vader/
+├── core.py             # Main agent loop with streaming
 ├── providers/
-│   ├── venice.py      # Venice API (primary)
-│   └── claude.py      # Claude CLI subprocess
+│   ├── venice.py       # Venice API with streaming
+│   └── claude.py       # Claude CLI subprocess
 ├── tools/
-│   ├── terminal.py    # bash/powershell
-│   ├── files.py       # read/write/glob/grep
-│   ├── memory.py      # shared memory
-│   └── browser.py     # kimi-webbridge (TODO)
-├── commands/          # Slash commands
-└── core.py            # Main agent loop
+│   ├── terminal.py     # bash/powershell with live output
+│   ├── files.py        # read/write/glob/grep
+│   ├── memory.py       # shared memory
+│   └── browser.py      # kimi-webbridge
+├── commands/           # Slash commands
+├── tts.py              # Windows SAPI TTS
+└── stt.py              # Windows Speech Recognition
 ```
+
+## Requirements
+
+- Python 3.10+
+- Windows (for TTS/STT)
+- httpx
+- Claude CLI (for /usage and Claude provider)
+- kimi-webbridge (optional, for browser)
 
 ## Author
 

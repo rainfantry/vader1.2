@@ -30,18 +30,20 @@ def _call_webbridge(action: str, args: dict, session: str = SESSION_NAME) -> dic
              "-H", "Content-Type: application/json",
              "--data-binary", f"@{temp_path}"],
             capture_output=True,
-            text=True,
-            timeout=30
+            timeout=30,
+            encoding="utf-8",
+            errors="replace"
         )
         temp_path.unlink(missing_ok=True)
 
         if result.returncode != 0:
-            return {"ok": False, "error": {"message": f"curl failed: {result.stderr}"}}
+            return {"ok": False, "error": {"message": f"curl failed: {result.stderr or 'unknown'}"}}
 
-        if not result.stdout.strip():
+        stdout = result.stdout or ""
+        if not stdout.strip():
             return {"ok": False, "error": {"message": "Empty response from daemon"}}
 
-        return json.loads(result.stdout)
+        return json.loads(stdout)
 
     except json.JSONDecodeError as e:
         return {"ok": False, "error": {"message": f"Invalid JSON: {e}"}}
