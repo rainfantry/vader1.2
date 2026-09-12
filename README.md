@@ -1,139 +1,123 @@
-# VADER Unified
+# VADER 1.2
 
-Dual-brain terminal agent - Venice (GLM Heretic) + Claude.
+Terminal agent + Web interface with Piper TTS and learnable STT corrections.
+
+## Features
+
+- **Venice AI** - Fast, cheap, GLM Heretic 4.7 with live streaming
+- **Piper TTS** - High-quality local neural TTS (no cloud)
+- **Whisper STT** - Offline speech-to-text with learnable corrections
+- **Gradio Web UI** - Browser interface with voice (works on phone!)
+- **Learnings System** - Persistent memory that survives sessions
+- **Session Journal** - Auto-save conversations
+- **Own Memory** - Separate from Claude Code's memory
+
+## Quick Start
+
+### Terminal Mode
+```bash
+vader1.2
+```
+
+### Web Mode (for phone/browser)
+```bash
+cd vader1.2
+python web.py
+```
+Open `http://YOUR_PC_IP:7860` on your phone.
 
 ## Installation
 
 ```bash
 # Clone
-git clone https://github.com/rainfantry/vader-unified.git
-cd vader-unified
+git clone https://github.com/rainfantry/vader1.2.git
+cd vader1.2
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Set Venice API key (get from https://venice.ai)
-# Windows:
+# Set Venice API key
 set VENICE_API_KEY=your_key_here
-# Or add to PowerShell profile:
-# $env:VENICE_API_KEY = "your_key_here"
-
-# Create alias (add to PowerShell profile)
-function vader { python "C:\path\to\vader-unified\vader.py" $args }
-```
-
-## Features
-
-- **Venice primary** - Fast, cheap, GLM Heretic 4.7 with live streaming
-- **Claude fallback** - Via CLI subprocess (uses your subscription)
-- **Live streaming** - Thinking and content stream token by token
-- **Live tool output** - Commands show output line by line as they run (PowerShell on Windows)
-- **TTS** - Windows SAPI text-to-speech on responses
-- **STT** - Whisper (faster-whisper) offline voice input with auto-listen mode
-- **Browser automation** - Via kimi-webbridge (navigate, click, fill, screenshot, read)
-- **Shared memory** - Uses Claude Code memory folder
-- **Status bar** - Provider, thinking, TTS, STT, Claude usage (session%/week%), bypass mode
-- **History** - ↑↓ arrows for command history, Tab for autocomplete
-
-## Usage
-
-```bash
-# Interactive mode
-vader
-
-# Or directly
-python vader.py
 ```
 
 ## Commands
 
 | Command | Action |
 |---------|--------|
-| `/help` | Show commands |
+| `/help` | Show all commands |
 | `/model <v\|c>` | Switch Venice/Claude |
-| `/usage` | Claude subscription usage |
-| `/thinking <on\|off\|effort>` | Thinking mode (none/minimal/low/medium/high/xhigh/max) |
-| `/verbose <low\|med\|high>` | Response verbosity |
-| `/bypass` | Toggle dangerous cmd skip (RED status bar) |
-| `/tts <on\|off\|test>` | Text-to-speech output |
-| `/stt <on\|off\|test\|devices>` | Speech-to-text (Whisper offline) |
-| `@` | Trigger voice input (when stt enabled) |
-| `/memory list\|read <name>` | Memory ops |
-| `/reset` | Clear context |
-| `/status` | Show all states |
+| `/thinking <on\|off\|effort>` | Thinking mode |
+| `/tts <on\|off\|test>` | Text-to-speech (SAPI) |
+| `/stt <on\|off\|test>` | Speech-to-text (Whisper) |
+| `/stt correct <wrong> <right>` | Teach STT correction |
+| `/stt list` | List corrections |
+| `/learn <thing>` | Save a learning |
+| `/learnings` | Show all learnings |
+| `/forget <id>` | Remove a learning |
+| `/journal save\|list\|load` | Session management |
+| `/memory list\|read` | Read VADER's memory |
 
-**Keyboard shortcuts:** `↑↓` command history, `Tab` autocomplete commands and args
+## STT Corrections
 
-## Live Streaming
-
-Responses stream live:
-- **Thinking** - Shows `[thinking]` prefix with reasoning tokens
-- **Content** - Appears word by word
-- **Tool output** - Bash commands show `│ line` for each output line
-
-## Voice
-
+Whisper mishears things. Teach it:
 ```
-/tts on       # Speak responses aloud (Windows SAPI)
-/stt on       # Voice mode - auto-listens after each response
-/stt off      # Back to keyboard only
-/stt test     # Test microphone
-/stt devices  # List audio input devices
+/stt correct 22drv 22DIV
+/stt correct spilt22div 22DIV
 ```
 
-Voice mode is continuous - after each response, it listens again. Ctrl+C exits to keyboard.
-Status bar shows `stt:@` when enabled. TTS strips markdown and truncates long responses (400 char limit).
+Corrections persist in `vader/stt_corrections.json`.
 
-**Natural language control:** Say "turn on speech" or "enable TTS" and the LLM uses slash commands internally.
+## Piper TTS
 
-## Browser Automation
+Local neural TTS using Piper. Voice model included: `en_US-lessac-medium`.
 
-Requires kimi-webbridge extension connected. The agent can:
-- Navigate to URLs (reuses same tab by default)
-- Scroll up/down/top/bottom like a human
-- Click elements (using @e refs from snapshot)
-- Fill forms
-- Take screenshots
-- Read page content (accessibility tree)
+### Custom Voice Training
 
-## Venice API Params
+To clone your own voice:
+1. Record ~30 min of clean audio
+2. Use Piper training scripts (requires GPU)
+3. Place `.onnx` model in `voices/` folder
 
-- `venice_parameters.disable_thinking: true/false`
-- `reasoning.effort: none/minimal/low/medium/high/xhigh/max`
-- `verbosity: low/medium/high/auto`
+Or use Coqui XTTS (requires Python 3.9-3.11):
+- Clones voice with ~10 seconds of audio
+- Install: `pip install TTS` (in Python 3.11 venv)
+
+## Web Interface
+
+`web.py` runs a Gradio server:
+- Chat with Venice AI
+- Shows thinking tokens
+- TTS plays in browser (works on phone!)
+- Voice input via browser speech API
+
+Access from any device on your network.
 
 ## Architecture
 
 ```
-vader/
-├── core.py             # Main agent loop with streaming
-├── providers/
-│   ├── venice.py       # Venice API with streaming
-│   └── claude.py       # Claude CLI subprocess
-├── tools/
-│   ├── terminal.py     # bash/powershell with live output
-│   ├── files.py        # read/write/glob/grep
-│   ├── memory.py       # shared memory
-│   └── browser.py      # kimi-webbridge
-├── commands/           # Slash commands
-├── tts.py              # Windows SAPI TTS
-└── stt.py              # faster-whisper STT (offline)
+vader1.2/
+├── vader.py            # Terminal entry point
+├── web.py              # Gradio web interface
+├── vader/
+│   ├── core.py         # Main agent loop
+│   ├── stt.py          # Whisper + corrections
+│   ├── tts.py          # SAPI TTS (terminal)
+│   ├── tts_piper.py    # Piper TTS (web)
+│   ├── journal.py      # Sessions + learnings
+│   ├── providers/      # Venice, Claude
+│   ├── tools/          # Files, browser, memory
+│   └── commands/       # Slash commands
+├── voices/             # Piper voice models
+├── memory/             # VADER's own memory
+├── sessions/           # Saved conversations
+└── learnings.json      # Persistent learnings
 ```
 
 ## Requirements
 
 - Python 3.10+
-- Windows (for TTS - uses SAPI)
-- httpx
-- prompt_toolkit (autocomplete, history)
-- faster-whisper (offline STT)
-- sounddevice, numpy (voice activity detection)
-- Claude CLI (for /usage and Claude provider)
-- kimi-webbridge Chrome extension (optional, for browser)
-
-```bash
-pip install -r requirements.txt
-```
+- Windows (for SAPI TTS in terminal mode)
+- See `requirements.txt`
 
 ## Author
 

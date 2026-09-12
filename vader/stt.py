@@ -1,6 +1,9 @@
-"""STT via faster-whisper (offline, high accuracy)"""
+"""STT via faster-whisper (offline, high accuracy) with learnable corrections"""
 import sys
 import time
+import json
+import os
+import re
 import numpy as np
 
 # Try imports
@@ -10,6 +13,9 @@ try:
     HAS_WHISPER = True
 except ImportError:
     HAS_WHISPER = False
+
+# Corrections file path
+CORRECTIONS_FILE = os.path.join(os.path.dirname(__file__), "stt_corrections.json")
 
 # Config
 SAMPLE_RATE = 16000
@@ -119,6 +125,8 @@ def listen(timeout: int = 15, wait_for_speech: bool = True) -> str:
         return ""
 
     text = transcribe(audio)
+    # Apply learned corrections
+    text = apply_corrections(text)
     return text
 
 
@@ -140,3 +148,62 @@ def get_devices():
         return inputs
     except:
         return []
+
+
+# === LEARNABLE CORRECTIONS SYSTEM ===
+
+def _load_corrections() -> dict:
+    """Load corrections dictionary from file."""
+    if os.path.exists(CORRECTIONS_FILE):
+        try:
+            with open(CORRECTIONS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+
+def _save_corrections(corrections: dict):
+    """Save corrections dictionary to file."""
+    with open(CORRECTIONS_FILE, "w", encoding="utf-8") as f:
+        json.dump(corrections, f, indent=2)
+
+
+def apply_corrections(text: str) -> str:
+    """Apply learned corrections to transcribed text."""
+    corrections = _load_corrections()
+    if not corrections:
+        return text
+    result = text
+    for wrong, right in corrections.items():
+        pattern = re.compile(re.escape(wrong), re.IGNORECASE)
+        result = pattern.sub(right, result)
+    return result
+
+
+def add_correction(wrong: str, right: str) -> str:
+    """Add a correction mapping. Returns status message."""
+    corrections = _load_corrections()
+    corrections[wrong.lower()] = right
+    _save_corrections(corrections)
+    return f"Added: '{wrong}' → '{right}'"
+
+
+def remove_correction(wrong: str) -> str:
+    """Remove a correction mapping. Returns status message."""
+    corrections = _load_corrections()
+    key = wrong.lower()
+    if key in corrections:
+        del corrections[key]
+        _save_corrections(corrections)
+        return f"Removed correction for '{wrong}'"
+    return f"No correction found for '{wrong}'"
+
+
+def list_corrections() -> str:
+    """List all corrections."""
+    corrections = _load_corrections()
+    if not corrections:
+        return "No corrections saved."
+    lines = [f"  '{k}' → '{v}'" for k, v in corrections.items()]
+    return "STT Corrections:\n" + "\n".join(lines)
